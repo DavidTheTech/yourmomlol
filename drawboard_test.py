@@ -20,3 +20,5 @@ def handle_draw_event(data):
 
 if __name__ == '__main__':
     socketio.run(app, debug=False)
+
+#s
