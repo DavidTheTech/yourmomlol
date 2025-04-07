@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Whiteboard</title>
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <style>
+        canvas
+        {
+            border:1px solid black;
+            cursor: crosshair;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .controls
+        {
+            margin-bottom: 10px;
+        }
+        
+        .color-btn
+        {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 5px;
+            border: 1px solid #000;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="board" width="800" height="600"></canvas>
+    
+    <div class="controls">
+        <label>Pen Size: <span id="pen-size-display">2</span></label>
+        <input type="range" id="pen-size" min="1" max="50" value="2">
+
+        <input type="color" id="color-picker" value="#000000">
+        
+        <div id="preset-colors">
+            <div class="color-btn" style="background-color: black;" data-color="#000000"></div>
+            <div class="color-btn" style="background-color: red;" data-color="#ff0000"></div>
+            <div class="color-btn" style="background-color: green;" data-color="#00ff00"></div>
+            <div class="color-btn" style="background-color: blue;" data-color="#0000ff"></div>
+            <div class="color-btn" style="background-color: yellow;" data-color="#ffff00"></div>
+        </div>
+
+        <button id="clear-board">Clear Canvas (LOCAL)</button>
+
+    </div>
+
+
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const penSizeSlider = document.getElementById('pen-size');
+        const penSizeDisplay = document.getElementById('pen-size-display');
+        const colorPicker = document.getElementById('color-picker');
+        const presetColors = document.getElementById('preset-colors');
+        const clearBoard = document.getElementById('clear-board');
+
+        let drawing = false;
+        let penSize = parseInt(penSizeSlider.value);
+        let color = colorPicker.value;
+
+        penSizeSlider.addEventListener('input', () => {
+            penSize = parseInt(penSizeSlider.value);
+            penSizeDisplay.textContent = penSize;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            if (e.deltaY < 0)
+            {
+                penSize = Math.min(penSize + 1, 50);
+            }
+            else
+            {
+                penSize = Math.max(penSize - 1, 1);
+            }
+            penSizeSlider.value = penSize;
+            penSizeDisplay.textContent = penSize;
+        });
+
+        colorPicker.addEventListener('input', () => {
+            color = colorPicker.value;
+        });
+
+        presetColors.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-btn'))
+            {
+                color = e.target.getAttribute('data-color');
+                colorPicker.value = color;
+            }
+        });
+
+        clearBoard.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        canvas.addEventListener('mousedown', (e) => { drawing = true; });
+        canvas.addEventListener('mouseup', (e) => { drawing = false; });
+        canvas.addEventListener('mouseout', (e) => { drawing = false; });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!drawing) return;
+            const x = e.offsetX;
+            const y = e.offsetY;
+            socket.emit('draw_event', {x, y, penSize, color});
+            draw(x, y, penSize, color);
+        });
+
+        socket.on('draw_event', (data) => {
+            draw(data.x, data.y, data.penSize, data.color);
+        });
+
+        function draw(x, y, size, color)
+        {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    </script>
+</body>
+</html>
