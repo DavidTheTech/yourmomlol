@@ -10,7 +10,7 @@ app = Flask(__name__,
 socketio = SocketIO(app)
 
 #Socket stuff
-@app.route('/drawboard')
+@app.route('/')
 def serve_board():
     return render_template('drawboard.html')
 
