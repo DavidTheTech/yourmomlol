@@ -47,6 +47,9 @@
 
         <button id="clear-board">Clear Canvas (LOCAL)</button>
 
+        <input type="checkbox" id="rand-Color" name="rand-Color">
+        <label for="rand-Color">Rainbow pen</label><br>
+
     </div>
 
 
@@ -59,10 +62,13 @@
         const colorPicker = document.getElementById('color-picker');
         const presetColors = document.getElementById('preset-colors');
         const clearBoard = document.getElementById('clear-board');
-
+        const randColorChk = document.getElementById('rand-Color');
+        
         let drawing = false;
         let penSize = parseInt(penSizeSlider.value);
         let color = colorPicker.value;
+        let colorRnd = "#000000";
+        let rainbowPen = false;
 
         penSizeSlider.addEventListener('input', () => {
             penSize = parseInt(penSizeSlider.value);
@@ -109,7 +115,24 @@
             const x = e.offsetX;
             const y = e.offsetY;
             socket.emit('draw_event', {x, y, penSize, color});
+
+            if (rainbowPen)
+            {
+                color = colorRnd;
+            }
+
             draw(x, y, penSize, color);
+        });
+
+        randColorChk.addEventListener('change', (e) => {
+            if (e.target.checked)
+            {
+                rainbowPen = true;
+            }
+            else
+            {
+                rainbowPen = false;
+            }
         });
 
         socket.on('draw_event', (data) => {
@@ -123,6 +146,33 @@
             ctx.arc(x, y, size / 2, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        var r = 255, g = 0, b = 0;
+
+        setInterval(function()
+        {
+            if (rainbowPen)
+            {
+                if (r > 0 && b == 0)
+                {
+                    r--;
+                    g++;
+                }
+                else if (g > 0 && r == 0)
+                {
+                    g--;
+                    b++;
+                }
+                else if (b > 0 && g == 0)
+                {
+                    r++;
+                    b--;
+                }
+
+                colorRnd = '#' + r.toString(16).padStart(2, '0') + g.toString(16).padStart(2, '0') + b.toString(16).padStart(2, '0');
+                console.log(color);
+            }
+        }, 10);
     </script>
 </body>
 </html>
