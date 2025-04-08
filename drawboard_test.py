@@ -1,7 +1,7 @@
 import os
 import json
-from flask import Flask, render_template, send_from_directory, send_file, current_app
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit, join_room
 
 app = Flask(__name__, 
     static_url_path='/static',
@@ -14,9 +14,20 @@ socketio = SocketIO(app)
 def serve_board():
     return render_template('drawboard.html')
 
+@socketio.on('join_room')
+def handle_join_room(data):
+    room = data['room']
+    join_room(room)
+
 @socketio.on('draw_event')
 def handle_draw_event(data):
-    emit('draw_event', data, broadcast=True)
+    room = data['room']
+    points = data['points']
+    pen_size = data['penSize']
+    color = data['color']
+
+    emit('draw_event', { 'points': points, 'penSize': pen_size, 'color': color }, room=room)
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=False)
