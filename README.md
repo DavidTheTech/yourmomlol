@@ -10,5 +10,7 @@ and a test script to run it locally
 
 # Setup
 `pip install flask-socketio eventlet`
+
 `python3 drawboard_test.py`
+
 `http://localhost:5000`
