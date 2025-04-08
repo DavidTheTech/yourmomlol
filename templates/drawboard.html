@@ -31,6 +31,13 @@
 <body>
     <canvas id="board" width="800" height="600"></canvas>
     
+    <div>
+        <input type="text" id="room-input" placeholder="Enter Room Code">
+        <button id="join-room-btn">Join Room</button>
+    </div>
+    
+    <button id="save-img-btn">Save as PNG</button>
+
     <div class="controls">
         <label>Pen Size: <span id="pen-size-display">2</span></label>
         <input type="range" id="pen-size" min="1" max="50" value="2">
@@ -63,30 +70,21 @@
         const presetColors = document.getElementById('preset-colors');
         const clearBoard = document.getElementById('clear-board');
         const randColorChk = document.getElementById('rand-Color');
+        const joinBtn = document.getElementById('join-room-btn');
+        const savePngBtn = document.getElementById('save-img-btn');
         
         let drawing = false;
         let penSize = parseInt(penSizeSlider.value);
         let color = colorPicker.value;
         let colorRnd = "#000000";
         let rainbowPen = false;
+        let room = '';
+        let lastX = null;
+        let lastY = null;
 
+        //Listeners
         penSizeSlider.addEventListener('input', () => {
             penSize = parseInt(penSizeSlider.value);
-            penSizeDisplay.textContent = penSize;
-        });
-
-        canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            
-            if (e.deltaY < 0)
-            {
-                penSize = Math.min(penSize + 1, 50);
-            }
-            else
-            {
-                penSize = Math.max(penSize - 1, 1);
-            }
-            penSizeSlider.value = penSize;
             penSizeDisplay.textContent = penSize;
         });
 
@@ -106,22 +104,51 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         });
 
-        canvas.addEventListener('mousedown', (e) => { drawing = true; });
-        canvas.addEventListener('mouseup', (e) => { drawing = false; });
-        canvas.addEventListener('mouseout', (e) => { drawing = false; });
-        
+        //Canvas
+        canvas.addEventListener('mousedown', (e) => {
+            drawing = true;
+            lastX = e.offsetX;
+            lastY = e.offsetY;
+            draw(lastX, lastY, penSize, color);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            drawing = false;
+            lastX = null;
+            lastY = null;
+        });
+
+        canvas.addEventListener('mouseout', () => { drawing = false; });
+
         canvas.addEventListener('mousemove', (e) => {
             if (!drawing) return;
+        
             const x = e.offsetX;
             const y = e.offsetY;
-            socket.emit('draw_event', {x, y, penSize, color});
-
-            if (rainbowPen)
-            {
+        
+            if (rainbowPen) {
                 color = colorRnd;
             }
-
-            draw(x, y, penSize, color);
+        
+            sendSmoothDrawing(lastX, lastY, x, y);
+        
+            lastX = x;
+            lastY = y;
+        });
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            if (e.deltaY < 0)
+            {
+                penSize = Math.min(penSize + 1, 50);
+            }
+            else
+            {
+                penSize = Math.max(penSize - 1, 1);
+            }
+            penSizeSlider.value = penSize;
+            penSizeDisplay.textContent = penSize;
         });
 
         randColorChk.addEventListener('change', (e) => {
@@ -135,8 +162,31 @@
             }
         });
 
+        joinBtn.addEventListener('click', () =>
+        {
+            room = document.getElementById('room-input').value.trim();
+            if (room)
+            {
+                socket.emit('join_room', { room: room });
+            }
+        });
+
+        savePngBtn.addEventListener('click', () =>
+        {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'whiteboard.png';
+            link.click();
+        });
+
+        //drawing
+
         socket.on('draw_event', (data) => {
-            draw(data.x, data.y, data.penSize, data.color);
+            //draw(data.x, data.y, data.penSize, data.color);
+            data.points.forEach(point =>
+            {
+                draw(point.x, point.y, data.penSize, data.color);
+            });
         });
 
         function draw(x, y, size, color)
@@ -145,6 +195,45 @@
             ctx.beginPath();
             ctx.arc(x, y, size / 2, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        function drawLine(x0, y0, x1, y1, size, color)
+        {
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const distance = Math.hypot(dx, dy);
+            const steps = Math.ceil(distance / (size / 2));
+        
+            for (let i = 0; i < steps; i++)
+            {
+                const t = i / steps;
+                const x = x0 + dx * t;
+                const y = y0 + dy * t;
+                draw(x, y, size, color);
+            }
+        }
+
+        function sendSmoothDrawing(x0, y0, x1, y1)
+        {
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const distance = Math.hypot(dx, dy);
+            const steps = Math.ceil(distance / (penSize / 2));
+
+            let points = [];
+
+            for (let i = 0; i < steps; i++) {
+                const t = i / steps;
+                const x = x0 + dx * t;
+                const y = y0 + dy * t;
+                points.push({ x, y });
+            }
+        
+            //spam
+            if (points.length > 0)
+            {
+                socket.emit('draw_event', { points, penSize, color, room });
+            }
         }
 
         var r = 255, g = 0, b = 0;
