@@ -7,9 +7,13 @@
         canvas
         {
             border:1px solid black;
-            cursor: crosshair;
+            cursor: none;
             display: block;
             margin-bottom: 10px;
+        }
+        
+        #board{
+            float:left;
         }
         
         .controls
@@ -30,6 +34,7 @@
 </head>
 <body>
     <canvas id="board" width="800" height="600"></canvas>
+    <canvas id="cursorLayer" width="800" height="600"></canvas>
     
     <div>
         <input type="text" id="room-input" placeholder="Enter Room Code">
@@ -70,6 +75,8 @@
         const socket = io();
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d');
+        const cursorCanvas = document.getElementById('cursorLayer');
+        const cctx = cursorCanvas.getContext('2d');
         const penSizeSlider = document.getElementById('pen-size');
         const penSizeDisplay = document.getElementById('pen-size-display');
         const colorPicker = document.getElementById('color-picker');
@@ -351,6 +358,12 @@
 
         setInterval(function()
         {
+            cctx.clear();
+            cctx.strokeStyle = "#444444";
+            cctx.lineWidth = 2;
+            cctx.beginPath();
+            cctx.arc(lastX,lastY,penSize,0,2*Math.PI);
+            cctx.stroke();
             if (rainbowPen)
             {
                 if (r > 0 && b == 0)
