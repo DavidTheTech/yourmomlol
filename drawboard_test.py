@@ -3,9 +3,7 @@ import json
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit, join_room
 
-app = Flask(__name__, 
-    static_url_path='/static',
-    static_folder='static')
+app = Flask(__name__)
 
 socketio = SocketIO(app)
 
@@ -26,7 +24,7 @@ def handle_draw_event(data):
     pen_size = data['penSize']
     color = data['color']
 
-    emit('draw_event', { 'points': points, 'penSize': pen_size, 'color': color }, room=room)
+    emit('draw_event', { 'points': points, 'penSize': pen_size, 'color': color }, room=room, include_self=False)
 
 
 if __name__ == '__main__':
