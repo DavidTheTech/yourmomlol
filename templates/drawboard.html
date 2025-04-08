@@ -56,6 +56,12 @@
 
         <input type="checkbox" id="rand-Color" name="rand-Color">
         <label for="rand-Color">Rainbow pen</label><br>
+        <button id="text-btn">Text Mode: OFF</button>
+
+        <input type="range" id="textSizeSlider" min="10" max="100" value="20">
+        <span id="textSizeLabel">Text Size: 20</span>
+        <input type="text" id="text-Input" style="position: absolute; display: none;">
+
 
     </div>
 
@@ -72,8 +78,14 @@
         const randColorChk = document.getElementById('rand-Color');
         const joinBtn = document.getElementById('join-room-btn');
         const savePngBtn = document.getElementById('save-img-btn');
+        const textBtn = document.getElementById('text-btn');
+        const textSizeSlider = document.getElementById('textSizeSlider');
+        const textSizeLabel = document.getElementById('textSizeLabel');
+        const textInput = document.getElementById('text-Input');
         
+        let textSize = textSizeSlider.value;
         let drawing = false;
+        let textMode = false;
         let penSize = parseInt(penSizeSlider.value);
         let color = colorPicker.value;
         let colorRnd = "#000000";
@@ -81,8 +93,16 @@
         let room = '';
         let lastX = null;
         let lastY = null;
+        let currentText = null;
 
         //Listeners
+
+        textSizeSlider.addEventListener('input', () =>
+        {
+            textSize = textSizeSlider.value;
+            textSizeLabel.textContent = `Text Size: ${textSize}`;
+        });
+
         penSizeSlider.addEventListener('input', () =>
         {
             penSize = parseInt(penSizeSlider.value);
@@ -108,19 +128,65 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         });
 
+        textBtn.addEventListener('click', () =>
+        {
+            textMode = !textMode;
+            textBtn.innerText = `Text Mode: ${textMode ? 'ON' : 'OFF'}`;
+        });
+
         //Canvas
         canvas.addEventListener('mousedown', (e) =>
         {
-            drawing = true;
-            lastX = e.offsetX;
-            lastY = e.offsetY;
-            draw(lastX, lastY, penSize, color);
-            sendSmoothDrawing(lastX, lastY, lastX, lastY);
+            if (textMode)
+            {
+                const x = e.offsetX;
+                const y = e.offsetY;
+                
+                textInput.style.left = `${x}px`;
+                textInput.style.top = `${y}px`;
+                textInput.style.display = 'block';
+                textInput.focus();
+
+                textInput.addEventListener('keypress', (e) =>
+                {
+                    if (e.key === 'Enter')
+                    {
+                        const text = textInput.value;
+                        if (text)
+                        {
+                            drawText(x, y, text, color, textSize);
+
+                            currentText = { x, y, text, color, size: textSize };
+
+                            sendText(currentText.x, currentText.y, currentText.text);
+
+                            textInput.style.display = 'none';
+                            textInput.value = '';
+                            currentText = null;
+                        }
+                    }
+                });
+            }
+            else
+            {
+                drawing = true;
+                lastX = e.offsetX;
+                lastY = e.offsetY;
+                draw(lastX, lastY, penSize, color);
+                sendSmoothDrawing(lastX, lastY, lastX, lastY);
+            }
 
         });
 
         canvas.addEventListener('mouseup', () =>
         {
+            if (textMode && currentText)
+            {
+                sendText(currentText.x, currentText.y, currentText.text);
+                currentText = null;
+                return;
+            }
+
             drawing = false;
             lastX = null;
             lastY = null;
@@ -200,11 +266,17 @@
 
         socket.on('draw_event', (data) =>
         {
-            //draw(data.x, data.y, data.penSize, data.color);
-            data.points.forEach(point =>
+            if (data.type === 'text')
             {
-                draw(point.x, point.y, data.penSize, data.color);
-            });
+                drawText(data.x, data.y, data.text, data.color, data.size);
+            }
+            else if (data.type === 'draw')
+            {
+                data.points.forEach(point =>
+                {
+                    draw(point.x, point.y, data.penSize, data.color);
+                });
+            }
         });
 
         function draw(x, y, size, color)
@@ -237,12 +309,12 @@
         {
             if (pendingPoints.length > 0)
             {
-                socket.emit('draw_event', { points: pendingPoints, penSize, color, room });
+                socket.emit('draw_event', { type: 'draw', points: pendingPoints, penSize, color, room });
                 pendingPoints = [];
             }
         }
 
-        setInterval(sendPendingPoints, 20);
+        setInterval(sendPendingPoints, 30);
 
         function sendSmoothDrawing(x0, y0, x1, y1)
         {
@@ -260,6 +332,18 @@
                 const y = y0 + dy * t;
                 pendingPoints.push({ x, y });
             }
+        }
+
+        function sendText(x, y, textContent)
+        {
+            socket.emit('draw_event', { type: 'text', x, y, text: textContent, color, size: textSize, room });
+        }
+
+        function drawText(x, y, text, color, size)
+        {
+            ctx.fillStyle = color;
+            ctx.font = `${size * 2}px Arial`;
+            ctx.fillText(text, x, y);
         }
 
         var r = 255, g = 0, b = 0;
