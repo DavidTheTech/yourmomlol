@@ -20,11 +20,10 @@ def handle_join_room(data):
 @socketio.on('draw_event')
 def handle_draw_event(data):
     room = data['room']
-    points = data['points']
-    pen_size = data['penSize']
-    color = data['color']
-
-    emit('draw_event', { 'points': points, 'penSize': pen_size, 'color': color }, room=room, include_self=False)
+    if data['type'] == 'text':
+        emit('draw_event', data, room=room, include_self=False)
+    elif data['type'] == 'draw':
+        emit('draw_event', data, room=room, include_self=False)
 
 
 if __name__ == '__main__':
