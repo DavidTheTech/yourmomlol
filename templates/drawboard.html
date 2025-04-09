@@ -4,16 +4,27 @@
     <title>Whiteboard</title>
     <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
     <style>
-        canvas
-        {
-            border:1px solid black;
-            cursor: none;
-            display: block;
-            margin-bottom: 10px;
+        #canvas-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
         }
-        
-        #board{
-            float:left;
+
+        #board, #cursorLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 1px solid black;
+            cursor: none;
+        }
+
+        #board {
+            z-index: 3;
+        }
+
+        #cursorLayer {
+            z-index: 2;
+            pointer-events: none;
         }
         
         .controls
@@ -33,8 +44,10 @@
     </style>
 </head>
 <body>
-    <canvas id="board" width="800" height="600"></canvas>
-    <canvas id="cursorLayer" width="800" height="600"></canvas>
+    <div id="canvas-container">
+        <canvas id="board" width="800" height="600"></canvas>
+        <canvas id="cursorLayer" width="800" height="600"></canvas>
+    </div>
     
     <div>
         <input type="text" id="room-input" placeholder="Enter Room Code">
@@ -207,6 +220,19 @@
 
         canvas.addEventListener('mousemove', (e) =>
         {
+            cctx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+            const x = e.offsetX;
+            const y = e.offsetY;
+
+            cctx.strokeStyle = "#444444";
+            cctx.lineWidth = 2;
+            cctx.beginPath();
+            cctx.arc(x, y, penSize, 0, 2 * Math.PI);
+            cctx.fill();
+        });
+
+        canvas.addEventListener('mousemove', (e) =>
+        {
             if (!drawing) return;
         
             const x = e.offsetX;
@@ -358,12 +384,6 @@
 
         setInterval(function()
         {
-            cctx.clear();
-            cctx.strokeStyle = "#444444";
-            cctx.lineWidth = 2;
-            cctx.beginPath();
-            cctx.arc(lastX,lastY,penSize,0,2*Math.PI);
-            cctx.stroke();
             if (rainbowPen)
             {
                 if (r > 0 && b == 0)
